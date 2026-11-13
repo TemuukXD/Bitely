@@ -13,8 +13,13 @@ export function resolveDefaultApiUrl(): string {
     return envUrl.replace(/\/$/, '');
   }
 
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).expoGoConfig?.debuggerHost ||
+    (Constants as any).manifest?.debuggerHost ||
+    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+
+  if (hostUri && typeof hostUri === 'string') {
     const ip = hostUri.split(':')[0];
     if (ip) {
       return `http://${ip}:3000`;

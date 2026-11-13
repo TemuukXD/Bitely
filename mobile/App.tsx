@@ -47,12 +47,54 @@ const SORT_OPTIONS: { key: SortOption; label: string }[] = [
   { key: 'price_asc', label: '₮ Lowest Spend' },
 ];
 
+interface MapErrorBoundaryProps {
+  onSwitchToList: () => void;
+  children: React.ReactNode;
+}
+
+interface MapErrorBoundaryState {
+  hasError: boolean;
+}
+
+class MapErrorBoundary extends React.Component<MapErrorBoundaryProps, MapErrorBoundaryState> {
+  constructor(props: MapErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): MapErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any) {
+    console.warn('Map rendering failed natively:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={styles.mapFallbackContainer}>
+          <Text style={styles.mapFallbackIcon}>📍</Text>
+          <Text style={styles.mapFallbackTitle}>Map Unavailable in Expo Go</Text>
+          <Text style={styles.mapFallbackSubtitle}>
+            Native Google Play services or map configuration is not available on this device. Explore all restaurants in List view.
+          </Text>
+          <TouchableOpacity style={styles.mapFallbackButton} onPress={this.props.onSwitchToList}>
+            <Text style={styles.mapFallbackButtonText}>Switch to List View</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const mapRef = useRef<MapView | null>(null);
 
-  // Navigation & View Mode
+  // Navigation & View Mode (Default to 'list' for instant, crash-free first load)
   const [activeTab, setActiveTab] = useState<'explore' | 'moments' | 'saved'>('explore');
-  const [exploreViewMode, setExploreViewMode] = useState<'map' | 'list'>('map');
+  const [exploreViewMode, setExploreViewMode] = useState<'map' | 'list'>('list');
 
   // API & Data State (Initialized immediately with Ulaanbaatar fallback data for 0ms startup)
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(resolveDefaultApiUrl);
@@ -601,116 +643,118 @@ export default function App() {
 
           {/* MAP VIEW + FLOATING BOTTOM VENUE CARD */}
           {exploreViewMode === 'map' ? (
-            <View style={{ flex: 1 }}>
-              <MapView
-                ref={mapRef}
-                style={StyleSheet.absoluteFill}
-                provider={PROVIDER_DEFAULT}
-                initialRegion={{
-                  latitude: 47.9165,
-                  longitude: 106.9175,
-                  latitudeDelta: 0.032,
-                  longitudeDelta: 0.032,
-                }}
-              >
-                {filteredVenues.map((venue) => {
-                  const isSelected = activePinVenue?.id === venue.id;
-                  return (
-                    <Marker
-                      key={venue.id}
-                      coordinate={{
-                        latitude: Number(venue.lat),
-                        longitude: Number(venue.lng),
-                      }}
-                      title={venue.name}
-                      description={`${venue.sub_district} • ★ ${venue.bayesian_score.toFixed(2)}`}
-                      onPress={() => focusVenueOnMap(venue)}
-                      pinColor={isSelected ? '#E11D48' : '#F97316'}
-                    />
-                  );
-                })}
-              </MapView>
-
-              {/* Horizontal Quick-Jump Venue Pill Strip on Top of Map */}
-              <View style={styles.mapTopOverlay}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {filteredVenues.map((v, i) => {
-                    const selected = activePinVenue?.id === v.id;
+            <MapErrorBoundary onSwitchToList={() => setExploreViewMode('list')}>
+              <View style={{ flex: 1 }}>
+                <MapView
+                  ref={mapRef}
+                  style={StyleSheet.absoluteFill}
+                  provider={Platform.OS === 'android' ? PROVIDER_DEFAULT : undefined}
+                  initialRegion={{
+                    latitude: 47.9165,
+                    longitude: 106.9175,
+                    latitudeDelta: 0.032,
+                    longitudeDelta: 0.032,
+                  }}
+                >
+                  {filteredVenues.map((venue) => {
+                    const isSelected = activePinVenue?.id === venue.id;
                     return (
-                      <TouchableOpacity
-                        key={v.id}
-                        onPress={() => focusVenueOnMap(v)}
-                        style={[
-                          styles.mapQuickPill,
-                          selected && styles.mapQuickPillSelected,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.mapQuickPillText,
-                            selected && styles.mapQuickPillTextSelected,
-                          ]}
-                        >
-                          #{i + 1} {v.name.split(' (')[0]} ★{v.bayesian_score.toFixed(1)}
-                        </Text>
-                      </TouchableOpacity>
+                      <Marker
+                        key={venue.id}
+                        coordinate={{
+                          latitude: Number(venue.lat),
+                          longitude: Number(venue.lng),
+                        }}
+                        title={venue.name}
+                        description={`${venue.sub_district} • ★ ${venue.bayesian_score.toFixed(2)}`}
+                        onPress={() => focusVenueOnMap(venue)}
+                        pinColor={isSelected ? '#E11D48' : '#F97316'}
+                      />
                     );
                   })}
-                </ScrollView>
-              </View>
+                </MapView>
 
-              {/* Bottom Selected Venue Preview Card */}
-              {activePinVenue && (
-                <View style={styles.mapBottomCard}>
-                  <TouchableOpacity
-                    activeOpacity={0.92}
-                    onPress={() => openVenueDetails(activePinVenue)}
-                  >
-                    <View style={styles.mapCardRow}>
-                      <Image
-                        source={{ uri: activePinVenue.cover_image_url }}
-                        style={styles.mapCardThumb}
-                      />
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <View style={styles.mapCardHeader}>
-                          <Text style={styles.mapCardTitle} numberOfLines={1}>
-                            {activePinVenue.name}
+                {/* Horizontal Quick-Jump Venue Pill Strip on Top of Map */}
+                <View style={styles.mapTopOverlay}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {filteredVenues.map((v, i) => {
+                      const selected = activePinVenue?.id === v.id;
+                      return (
+                        <TouchableOpacity
+                          key={v.id}
+                          onPress={() => focusVenueOnMap(v)}
+                          style={[
+                            styles.mapQuickPill,
+                            selected && styles.mapQuickPillSelected,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.mapQuickPillText,
+                              selected && styles.mapQuickPillTextSelected,
+                            ]}
+                          >
+                            #{i + 1} {v.name.split(' (')[0]} ★{v.bayesian_score.toFixed(1)}
                           </Text>
-                          <View style={styles.mapCardScoreBox}>
-                            <Text style={styles.mapCardScoreText}>
-                              ★ {activePinVenue.bayesian_score.toFixed(2)}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
+                {/* Bottom Selected Venue Preview Card */}
+                {activePinVenue && (
+                  <View style={styles.mapBottomCard}>
+                    <TouchableOpacity
+                      activeOpacity={0.92}
+                      onPress={() => openVenueDetails(activePinVenue)}
+                    >
+                      <View style={styles.mapCardRow}>
+                        <Image
+                          source={{ uri: activePinVenue.cover_image_url }}
+                          style={styles.mapCardThumb}
+                        />
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <View style={styles.mapCardHeader}>
+                            <Text style={styles.mapCardTitle} numberOfLines={1}>
+                              {activePinVenue.name}
                             </Text>
+                            <View style={styles.mapCardScoreBox}>
+                              <Text style={styles.mapCardScoreText}>
+                                ★ {activePinVenue.bayesian_score.toFixed(2)}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <Text style={styles.mapCardLocation} numberOfLines={1}>
+                            📍 {activePinVenue.sub_district}
+                            {activePinVenue.floor_level
+                              ? ` (${activePinVenue.floor_level})`
+                              : ''}{' '}
+                            • {(activePinVenue.distance_meters / 1000).toFixed(2)} km
+                          </Text>
+
+                          <Text style={styles.mapCardSpend}>
+                            {renderPriceSymbols(activePinVenue.price_band)} • ~
+                            {formatMnt(activePinVenue.avg_spend_mnt)}/person •{' '}
+                            {activePinVenue.verified_review_count} EXIF Verified
+                          </Text>
+
+                          <View style={styles.mapCardFooterRow}>
+                            <Text style={styles.mapCardDims}>
+                              Taste {activePinVenue.avg_taste.toFixed(1)} • Vibe{' '}
+                              {activePinVenue.avg_environment.toFixed(1)} • Value{' '}
+                              {activePinVenue.avg_value.toFixed(1)}
+                            </Text>
+                            <Text style={styles.inspectCta}>Inspect & Review →</Text>
                           </View>
                         </View>
-
-                        <Text style={styles.mapCardLocation} numberOfLines={1}>
-                          📍 {activePinVenue.sub_district}
-                          {activePinVenue.floor_level
-                            ? ` (${activePinVenue.floor_level})`
-                            : ''}{' '}
-                          • {(activePinVenue.distance_meters / 1000).toFixed(2)} km
-                        </Text>
-
-                        <Text style={styles.mapCardSpend}>
-                          {renderPriceSymbols(activePinVenue.price_band)} • ~
-                          {formatMnt(activePinVenue.avg_spend_mnt)}/person •{' '}
-                          {activePinVenue.verified_review_count} EXIF Verified
-                        </Text>
-
-                        <View style={styles.mapCardFooterRow}>
-                          <Text style={styles.mapCardDims}>
-                            Taste {activePinVenue.avg_taste.toFixed(1)} • Vibe{' '}
-                            {activePinVenue.avg_environment.toFixed(1)} • Value{' '}
-                            {activePinVenue.avg_value.toFixed(1)}
-                          </Text>
-                          <Text style={styles.inspectCta}>Inspect & Review →</Text>
-                        </View>
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </MapErrorBoundary>
           ) : (
             /* FULL RANKED LIST VIEW */
             <FlatList
@@ -1329,4 +1373,41 @@ const styles = StyleSheet.create({
   navTab: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   navTabLabel: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
   navTabLabelActive: { color: '#E11D48', fontWeight: '800' },
+  mapFallbackContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 28,
+    backgroundColor: '#F9FAFB',
+  },
+  mapFallbackIcon: {
+    fontSize: 44,
+    marginBottom: 12,
+  },
+  mapFallbackTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  mapFallbackSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 20,
+    maxWidth: 300,
+  },
+  mapFallbackButton: {
+    backgroundColor: '#E11D48',
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  mapFallbackButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
 });
