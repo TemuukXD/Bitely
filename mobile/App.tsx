@@ -13,7 +13,7 @@ import {
   StatusBar as RNStatusBar,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import { BitelyMap } from './src/components/BitelyMap';
 import { Venue, Review, SocialPost, SortOption } from './src/types/models';
 import {
   FALLBACK_VENUES,
@@ -90,7 +90,7 @@ class MapErrorBoundary extends React.Component<MapErrorBoundaryProps, MapErrorBo
 }
 
 export default function App() {
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<any>(null);
 
   // Navigation & View Mode (Default to 'list' for instant, crash-free first load)
   const [activeTab, setActiveTab] = useState<'explore' | 'moments' | 'saved'>('explore');
@@ -645,34 +645,12 @@ export default function App() {
           {exploreViewMode === 'map' ? (
             <MapErrorBoundary onSwitchToList={() => setExploreViewMode('list')}>
               <View style={{ flex: 1 }}>
-                <MapView
-                  ref={mapRef}
-                  style={StyleSheet.absoluteFill}
-                  provider={Platform.OS === 'android' ? PROVIDER_DEFAULT : undefined}
-                  initialRegion={{
-                    latitude: 47.9165,
-                    longitude: 106.9175,
-                    latitudeDelta: 0.032,
-                    longitudeDelta: 0.032,
-                  }}
-                >
-                  {filteredVenues.map((venue) => {
-                    const isSelected = activePinVenue?.id === venue.id;
-                    return (
-                      <Marker
-                        key={venue.id}
-                        coordinate={{
-                          latitude: Number(venue.lat),
-                          longitude: Number(venue.lng),
-                        }}
-                        title={venue.name}
-                        description={`${venue.sub_district} • ★ ${venue.bayesian_score.toFixed(2)}`}
-                        onPress={() => focusVenueOnMap(venue)}
-                        pinColor={isSelected ? '#E11D48' : '#F97316'}
-                      />
-                    );
-                  })}
-                </MapView>
+                <BitelyMap
+                  venues={filteredVenues}
+                  activePinVenue={activePinVenue}
+                  onSelectVenue={focusVenueOnMap}
+                  mapRef={mapRef}
+                />
 
                 {/* Horizontal Quick-Jump Venue Pill Strip on Top of Map */}
                 <View style={styles.mapTopOverlay}>
