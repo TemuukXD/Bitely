@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Bitely UB",
+    "slug": "bitely-ub",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "mn.bitely.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Bitely uses your location to rank nearby Ulaanbaatar restaurants and verify dining visits.",
+        "NSPhotoLibraryUsageDescription": "Bitely uses photo EXIF metadata to verify restaurant visits within 150 meters."
+      }
+    },
+    "android": {
+      "package": "mn.bitely.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "READ_MEDIA_IMAGES",
+        "ACCESS_MEDIA_LOCATION"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Bitely to find open restaurants near you in Ulaanbaatar."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Bitely to attach food photos and verify EXIF GPS location."
+        }
+      ]
+    ]
+  }
+}
